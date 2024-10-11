@@ -569,7 +569,7 @@ class Waifu(BasePlugin):
 
     async def _handle_voice_synthesis(self, launcher_id: int, text: str, ctx: EventContext):
         try:
-            from plugins.NewChatVoice.main import VoicePlugin, VoiceSynthesisError
+            from plugins.NewChatVoice.main import VoicePlugin , VoiceSynthesisError
         except ImportError as e:
             self.ap.logger.error(f"Failed to import VoicePlugin: {e}")
             return False
@@ -577,8 +577,9 @@ class Waifu(BasePlugin):
         if not config.ncv:
             config.ncv = VoicePlugin(self.host)
         try:
-            voice = await config.ncv.ncv_tts(launcher_id, text)
-            await ctx.event.query.adapter.reply_message(ctx.event.query.message_event, MessageChain([voice]), False)
+            voice = await config.ncv.ncv_gen_text_to_voice(ctx, launcher_id, text)
+            await config.ncv.ncv_send_voice(ctx, text, voice)
+            #await ctx.event.query.adapter.reply_message(ctx.event.query.message_event, MessageChain([voice]), False)
             return True
         except VoiceSynthesisError as e:
             self.ap.logger.error(f"{e}")
