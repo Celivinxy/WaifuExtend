@@ -1,0 +1,10 @@
+probability: 
+  - sender_id: 754846243
+    value: 80
+  - sender_id: 0
+    value: 50
+limit_length:
+  - sender_id: 754846243
+    value: 200
+  - sender_id: 0
+    value: 30

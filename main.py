@@ -5,6 +5,7 @@ import mirai
 import random
 import re
 import copy
+import yaml
 import shutil
 from mirai import MessageChain
 from pkg.plugin.context import register, handler, BasePlugin, APIHost, EventContext
@@ -38,6 +39,37 @@ COMMANDS = {
     "回答问题": "调试：可自定系统提示的问答模式，用法：[回答问题][系统提示语]|[用户提示语] / [回答问题][用户提示语]。",
 }
 
+class VoiceManager:
+    def __init__(self):
+        # 加载配置文件
+        with open('data/plugins/Waifu/config/voice.yaml', 'r') as file:
+            data = yaml.safe_load(file)
+
+        self.probability_map = {item['sender_id']: item['value'] for item in data['probability']}
+        self.limit_length_map = {item['sender_id']: item['value'] for item in data['limit_length']}
+
+    def _is_random_valid(self, sender_id: int) -> bool:
+        probability = self.probability_map.get(0, 0)
+        if sender_id in self.probability_map:
+            probability = self.probability_map[sender_id]
+        number = random.randint(0, 100)
+        # 概率要配置成数字
+        print(f"probability {probability} number {number}")
+        return number < probability
+
+    def _is_length_valid(self, sender_id: int, text: str) -> bool:
+        limit_length = self.limit_length_map.get(0, 0)
+        if sender_id in self.limit_length_map:
+            limit_length = self.limit_length_map[sender_id]
+        print(f"limit_length{limit_length}, len {len(text)}")
+        return len(text) <= limit_length
+
+    def use_voice(self, sender_id: int, text: str) -> bool:
+        if not self._is_random_valid(sender_id):
+            return False
+        if not self._is_length_valid(sender_id, text):
+            return False
+        return True  # 返回 True 表示可以使用语音
 
 class WaifuConfig:
     def __init__(self, host: APIHost, launcher_id: str, launcher_type: str):
@@ -82,6 +114,7 @@ class Waifu(BasePlugin):
         self._generator = Generator(host)
         self.configs: typing.Dict[str, WaifuConfig] = {}
         self._set_permissions_recursively("data/plugins/Waifu/", 0o777)
+        self.voice_manager = VoiceManager()
 
     async def initialize(self):
         # 为新用户创建配置文件
@@ -618,7 +651,7 @@ class Waifu(BasePlugin):
         response_fixed = config.memory.get_content_str_without_timestamp(response) # 避免模型仿照着回了时间戳        
         response_fixed = self._replace_english_punctuation(response_fixed)
         response_fixed = self._remove_blank_lines(response_fixed)
-        if voice and config.tts_mode == "ncv":
+        if voice and config.tts_mode == "ncv" and self.voice_manager.use_voice(launcher_id, response_fixed):
             await self._handle_voice_synthesis(launcher_id, response_fixed, ctx)
         else:
             await ctx.event.query.adapter.reply_message(ctx.event.query.message_event, MessageChain([f"{response_fixed}"]), False)
