@@ -674,15 +674,12 @@ class Waifu(BasePlugin):
         response_fixed = self._replace_english_punctuation(response_fixed)
         response_fixed = self._remove_blank_lines(response_fixed)
         
-        image_config = config.image_config
-        meme_mode = image_config.data.get("meme_mode", True)
-        meme_rate = image_config.data.get("meme_rate", 0.25)
-        meme_without_voice = meme_mode == "True" and image_utils.should_send_image(meme_rate)
-        
-        if voice and config.tts_mode == "ncv" and self.limit_controller.check_can_use_voice(launcher_id, response_fixed) and not meme_without_voice:
+        if voice and config.tts_mode == "ncv" and self.limit_controller.check_can_use_voice(launcher_id, response_fixed):
             await self._handle_voice_synthesis(launcher_id, response_fixed, ctx)
         else:
             image_config = config.image_config
+            meme_mode = image_config.data.get("meme_mode", True)
+            meme_rate = image_config.data.get("meme_rate", 0.25)
             meme_list = image_config.data.get("meme_list", [])
             meme_with_text = image_config.data.get("meme_with_text", False)
             
