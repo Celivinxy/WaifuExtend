@@ -7,6 +7,7 @@ import re
 import copy
 import yaml
 import shutil
+import base64
 from mirai import MessageChain
 from pkg.plugin.context import register, handler, BasePlugin, APIHost, EventContext
 from pkg.plugin.events import PersonNormalMessageReceived, GroupMessageReceived, GroupNormalMessageReceived
@@ -18,6 +19,7 @@ from plugins.Waifu.organs.memories import Memory
 from plugins.Waifu.systems.narrator import Narrator
 from plugins.Waifu.systems.value_game import ValueGame
 from plugins.Waifu.organs.thoughts import Thoughts
+from plugins.Waifu.multimodal.images import image_utils
 
 COMMANDS = {
     "列出命令": "列出目前支援所有命令及介绍，用法：[列出命令]。",
@@ -120,6 +122,8 @@ class Waifu(BasePlugin):
         # 为新用户创建配置文件
         waifu_config = ConfigManager(f"data/plugins/Waifu/config/waifu", "plugins/Waifu/templates/waifu")
         await waifu_config.load_config(completion=True)
+        image_config = ConfigManager(f"data/plugins/Waifu/config/image", "plugins/Waifu/templates/image")
+        await image_config.load_config(completion=True)
 
     @handler(PersonNormalMessageReceived)
     async def person_normal_message_received(self, ctx: EventContext):
@@ -169,6 +173,9 @@ class Waifu(BasePlugin):
 
         waifu_config = ConfigManager(f"data/plugins/Waifu/config/waifu", "plugins/Waifu/templates/waifu", launcher_id)
         await waifu_config.load_config(completion=True)
+        image_config = ConfigManager(f"data/plugins/Waifu/config/image", "plugins/Waifu/templates/image", launcher_id)
+        await image_config.load_config(completion=True)
+        config.image_config = image_config
 
         character = waifu_config.data.get("character", f"default")
         if character == "default":  # 区分私聊和群聊的模板
@@ -617,6 +624,14 @@ class Waifu(BasePlugin):
         except VoiceSynthesisError as e:
             self.ap.logger.error(f"{e}")
             return False
+        
+    async def _handle_image_synthesis(self, launcher_id: int, response_fixed: str, ctx: EventContext, meme_rate: float, meme_list: list, meme_with_text: bool):
+        try:
+            await image_utils.send_image_message_situational(launcher_id, response_fixed, ctx, meme_rate, meme_list, meme_with_text)
+            return True
+        except Exception as e:
+            self.ap.logger.error(f"Error occurred during image synthesis: {e}")
+            return False
 
     async def _vision(self, ctx: EventContext) -> str:
         # 参考自preproc.py PreProcessor
@@ -651,10 +666,25 @@ class Waifu(BasePlugin):
         response_fixed = config.memory.get_content_str_without_timestamp(response) # 避免模型仿照着回了时间戳        
         response_fixed = self._replace_english_punctuation(response_fixed)
         response_fixed = self._remove_blank_lines(response_fixed)
-        if voice and config.tts_mode == "ncv" and self.voice_manager.use_voice(launcher_id, response_fixed):
+        
+        image_config = config.image_config
+        meme_mode = image_config.data.get("meme_mode", True)
+        meme_rate = image_config.data.get("meme_rate", 0.25)
+        meme_without_voice = meme_mode == "True" and image_utils.should_send_image(meme_rate)
+        
+        if voice and config.tts_mode == "ncv" and self.voice_manager.use_voice(launcher_id, response_fixed) and not meme_without_voice:
             await self._handle_voice_synthesis(launcher_id, response_fixed, ctx)
         else:
-            await ctx.event.query.adapter.reply_message(ctx.event.query.message_event, MessageChain([f"{response_fixed}"]), False)
+            image_config = config.image_config
+            meme_mode = image_config.data.get("meme_mode", True)
+            meme_list = image_config.data.get("meme_list", [])
+            meme_with_text = image_config.data.get("meme_with_text", False)
+            
+            if meme_mode == "True":
+                if not await self._handle_image_synthesis(launcher_id, response_fixed, ctx, meme_rate, meme_list, meme_with_text):
+                    await ctx.event.query.adapter.reply_message(ctx.event.query.message_event, MessageChain([f"{response_fixed}"]), False)
+            else:
+                await ctx.event.query.adapter.reply_message(ctx.event.query.message_event, MessageChain([f"{response_fixed}"]), False)
 
     def _response_presets(self, launcher_id: int):
         '''

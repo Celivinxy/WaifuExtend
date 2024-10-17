@@ -1,0 +1,25 @@
+# 通用图片配置
+meme_mode: "True"  #是否启用meme模式，启用后将使用meme表情包
+meme_rate: 0.75     #meme模式触发概率
+meme_with_text: "True" #是否使用meme表情包同时也发送文字
+
+meme_list:
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Curious_好奇.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Amazed_惊喜.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Anxious_焦虑.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Astonished_惊讶.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Daze_愣住.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Disconsolate_惆怅.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Encourage_鼓励.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Fighting_加油.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Frustrated_无奈.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_GoodNight_晚安.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Grateful_感谢.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Happy_开心.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Innocent_无辜.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Love_喜欢.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Nervous_紧张.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_persistence_坚持.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Staring_盯.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Tired_疲惫.gif"
+  - "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Understood_明白.gif"
