@@ -5,7 +5,6 @@ import mirai
 import random
 import re
 import copy
-import yaml
 import shutil
 import base64
 from mirai import MessageChain
@@ -41,38 +40,6 @@ COMMANDS = {
     "回答问题": "调试：可自定系统提示的问答模式，用法：[回答问题][系统提示语]|[用户提示语] / [回答问题][用户提示语]。",
 }
 
-class LimitController:
-    def __init__(self, limit_config: ConfigManager):
-        # 加载配置文件
-        self.update_config(limit_config)
-
-    def _is_random_valid(self, sender_id: int) -> bool:
-        probability = self.probability_map.get(0, 0)
-        if sender_id in self.probability_map:
-            probability = self.probability_map[sender_id]
-        number = random.randint(0, 100)
-        # 概率要配置成数字
-        print(f"probability {probability} number {number}")
-        return number < probability
-
-    def _is_length_valid(self, sender_id: int, text: str) -> bool:
-        limit_length = self.limit_length_map.get(0, 0)
-        if sender_id in self.limit_length_map:
-            limit_length = self.limit_length_map[sender_id]
-        print(f"limit_length{limit_length}, len {len(text)}")
-        return len(text) <= limit_length
-
-    def check_can_use_voice(self, sender_id: int, text: str) -> bool:
-        if not self._is_random_valid(sender_id):
-            return False
-        if not self._is_length_valid(sender_id, text):
-            return False
-        return True  # 返回 True 表示可以使用语音
-    def update_config(self, limit_config: ConfigManager):
-        # 加载配置文件
-        data = limit_config.data
-        self.probability_map = {item['sender_id']: item['value'] for item in data['probability']}
-        self.limit_length_map = {item['sender_id']: item['value'] for item in data['limit_length']}
 
 class WaifuConfig:
     def __init__(self, host: APIHost, launcher_id: str, launcher_type: str):
@@ -124,9 +91,6 @@ class Waifu(BasePlugin):
         await waifu_config.load_config(completion=True)
         image_config = ConfigManager(f"data/plugins/Waifu/config/image", "plugins/Waifu/templates/image")
         await image_config.load_config(completion=True)
-        limit_config = ConfigManager(f"data/plugins/Waifu/config/limit", "plugins/Waifu/templates/limit")
-        await limit_config.load_config(completion=True)
-        self.limit_controller = LimitController(limit_config)
 
     @handler(PersonNormalMessageReceived)
     async def person_normal_message_received(self, ctx: EventContext):
@@ -178,11 +142,7 @@ class Waifu(BasePlugin):
         await waifu_config.load_config(completion=True)
         image_config = ConfigManager(f"data/plugins/Waifu/config/image", "plugins/Waifu/templates/image", launcher_id)
         await image_config.load_config(completion=True)
-        limit_config = ConfigManager(f"data/plugins/Waifu/config/limit", "plugins/Waifu/templates/limit", launcher_id)
-        await limit_config.load_config(completion=True)
         config.image_config = image_config
-        config.limit_config = limit_config
-        self.limit_controller.update_config(limit_config)
 
         character = waifu_config.data.get("character", f"default")
         if character == "default":  # 区分私聊和群聊的模板
@@ -678,11 +638,11 @@ class Waifu(BasePlugin):
         meme_mode = image_config.data.get("meme_mode", True)
         meme_rate = image_config.data.get("meme_rate", 0.25)
         meme_without_voice = meme_mode == "True" and image_utils.should_send_image(meme_rate)
-        
-        if voice and config.tts_mode == "ncv" and self.limit_controller.check_can_use_voice(launcher_id, response_fixed) and not meme_without_voice:
+        if voice and config.tts_mode == "ncv" and not meme_without_voice:
             await self._handle_voice_synthesis(launcher_id, response_fixed, ctx)
         else:
             image_config = config.image_config
+            meme_mode = image_config.data.get("meme_mode", True)
             meme_list = image_config.data.get("meme_list", [])
             meme_with_text = image_config.data.get("meme_with_text", False)
             
