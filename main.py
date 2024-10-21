@@ -710,8 +710,8 @@ class Waifu(BasePlugin):
         sender_id = ctx.event.sender_id
         user_info = self.db.fetch_user_info(sender_id)
         if voice and config.tts_mode == "ncv" and (
-            user_info['FMessageBalance'] <= 0 or 
-            (user_info['FVoiceBalance'] > 0 and self.limit_controller.check_can_use_voice(launcher_id, response_fixed))
+            user_info['FVoiceBalance'] > 0 and 
+            (user_info['FVoiceBalance'] <= 0 or self.limit_controller.check_can_use_voice(launcher_id, response_fixed))
         ):
             self.db.decrement_voice_balance(sender_id)
             await self._handle_voice_synthesis(launcher_id, response_fixed, ctx)
