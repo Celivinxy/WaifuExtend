@@ -1,0 +1,7 @@
+mysql:
+  host: 127.0.0.1
+  user: root
+  password: Ab123456@
+  database: QChatGPT
+  pool_name: mysql_pool
+  pool_size: 5

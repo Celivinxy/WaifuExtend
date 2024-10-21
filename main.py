@@ -20,6 +20,7 @@ from plugins.Waifu.systems.narrator import Narrator
 from plugins.Waifu.systems.value_game import ValueGame
 from plugins.Waifu.organs.thoughts import Thoughts
 from plugins.Waifu.multimodal.images import image_utils
+from plugins.Waifu.databases.mysql_client import MySQLClient
 
 COMMANDS = {
     "列出命令": "列出目前支援所有命令及介绍，用法：[列出命令]。",
@@ -68,6 +69,7 @@ class LimitController:
         if not self._is_length_valid(sender_id, text):
             return False
         return True  # 返回 True 表示可以使用语音
+
     def update_config(self, limit_config: ConfigManager):
         # 加载配置文件
         data = limit_config.data
@@ -124,13 +126,35 @@ class Waifu(BasePlugin):
         await waifu_config.load_config(completion=True)
         image_config = ConfigManager(f"data/plugins/Waifu/config/image", "plugins/Waifu/templates/image")
         await image_config.load_config(completion=True)
+
         limit_config = ConfigManager(f"data/plugins/Waifu/config/limit", "plugins/Waifu/templates/limit")
         await limit_config.load_config(completion=True)
         self.limit_controller = LimitController(limit_config)
 
+        mysql_config = ConfigManager(f"data/plugins/Waifu/config/database", "plugins/Waifu/templates/database")
+        await mysql_config.load_config(completion=True)
+        self.db = MySQLClient(mysql_config)
+
+    def has_balance(self, sender_id: int) -> bool:
+        user_info = self.db.fetch_user_info(sender_id)
+        if user_info == None:
+            # 数据库不存在这个用户，阻止往下运行,返回默认语句
+            return False
+        if user_info['FVoiceBalance'] <= 0 and user_info['FMessageBalance'] <= 0:
+            # 用户余额不足，阻止往下运行,返回默认语句
+            return False
+        return True
+
+
     @handler(PersonNormalMessageReceived)
     async def person_normal_message_received(self, ctx: EventContext):
         launcher_id = ctx.event.launcher_id
+
+        if not self.has_balance(launcher_id):
+            ctx.add_return("reply", ["余额不足, {}!".format(ctx.event.launcher_id)])
+            ctx.prevent_default()
+            return
+        
         if launcher_id not in self.configs:
             await self._load_config(launcher_id, ctx.event.launcher_type)
 
@@ -144,6 +168,11 @@ class Waifu(BasePlugin):
     async def group_normal_message_received(self, ctx: EventContext):
         launcher_id = ctx.event.launcher_id
         sender_id = ctx.event.sender_id
+
+        if not self.has_balance(sender_id):
+            ctx.prevent_default()
+            return
+
         if launcher_id not in self.configs:
             await self._load_config(launcher_id, ctx.event.launcher_type)
         # 在GroupNormalMessageReceived的ctx.event.query.message_chain会将At移除
@@ -164,6 +193,10 @@ class Waifu(BasePlugin):
         launcher_id = ctx.event.launcher_id
         if launcher_id not in self.configs:
             await self._load_config(launcher_id, ctx.event.launcher_type)
+
+        if not self.has_balance(ctx.event.sender_id):
+            ctx.prevent_default()
+            return
 
         need_assistant_reply, _ = await self._handle_command(ctx)
         if need_assistant_reply:
@@ -674,9 +707,16 @@ class Waifu(BasePlugin):
         response_fixed = self._replace_english_punctuation(response_fixed)
         response_fixed = self._remove_blank_lines(response_fixed)
         
-        if voice and config.tts_mode == "ncv" and self.limit_controller.check_can_use_voice(launcher_id, response_fixed):
+        sender_id = ctx.event.sender_id
+        user_info = self.db.fetch_user_info(sender_id)
+        if voice and config.tts_mode == "ncv" and (
+            user_info['FMessageBalance'] <= 0 or 
+            (user_info['FVoiceBalance'] > 0 and self.limit_controller.check_can_use_voice(launcher_id, response_fixed))
+        ):
+            self.db.decrement_voice_balance(sender_id)
             await self._handle_voice_synthesis(launcher_id, response_fixed, ctx)
-        else:
+        elif user_info['FMessageBalance'] > 0 :
+            self.db.decrement_message_balance(sender_id)
             image_config = config.image_config
             meme_mode = image_config.data.get("meme_mode", True)
             meme_rate = image_config.data.get("meme_rate", 0.25)
@@ -688,7 +728,10 @@ class Waifu(BasePlugin):
                     await ctx.event.query.adapter.reply_message(ctx.event.query.message_event, MessageChain([f"{response_fixed}"]), False)
             else:
                 await ctx.event.query.adapter.reply_message(ctx.event.query.message_event, MessageChain([f"{response_fixed}"]), False)
-
+        else:
+            ctx.add_return("reply", ["余额不足, {}!".format(ctx.event.sender_id)])
+            ctx.prevent_default()
+    
     def _response_presets(self, launcher_id: int):
         '''
         预设形式的回复：复读
