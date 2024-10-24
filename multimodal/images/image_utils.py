@@ -49,5 +49,13 @@ async def random_get_image_path(meme_list: list, launcher_id: int, response_fixe
     # 生成一个在 1 到 25 之间的随机整数
     meme_max_idx = len(meme_list) - 1
     random_integer = random.randint(0, meme_max_idx)
-    temp_image_path = meme_list[random_integer] or "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Curious_好奇.gif"
+
+    # 返回图片路径
+    if meme_list[random_integer]:
+        if meme_list[random_integer]['FUrl']:
+            temp_image_path = meme_list[random_integer]['FUrl']
+        else:
+            temp_image_path = meme_list[random_integer]
+    else:
+        temp_image_path = "data/plugins/Waifu/temp/XiaoBao/XiaoBao_Curious_好奇.gif"
     return temp_image_path

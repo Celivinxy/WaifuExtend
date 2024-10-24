@@ -711,7 +711,7 @@ class Waifu(BasePlugin):
         user_info = self.db.fetch_user_info(sender_id)
         if voice and config.tts_mode == "ncv" and (
             user_info['FVoiceBalance'] > 0 and 
-            (user_info['FVoiceBalance'] <= 0 or self.limit_controller.check_can_use_voice(launcher_id, response_fixed))
+            (user_info['FMessageBalance'] <= 0 or self.limit_controller.check_can_use_voice(launcher_id, response_fixed))
         ):
             self.db.decrement_voice_balance(sender_id)
             await self._handle_voice_synthesis(launcher_id, response_fixed, ctx)
@@ -719,8 +719,13 @@ class Waifu(BasePlugin):
             self.db.decrement_message_balance(sender_id)
             image_config = config.image_config
             meme_mode = image_config.data.get("meme_mode", True)
-            meme_rate = image_config.data.get("meme_rate", 0.25)
-            meme_list = image_config.data.get("meme_list", [])
+            meme_rate = image_config.data.get("meme_rate", 0.75)
+            
+            meme_db_table = self.db.fetch_all_emoji()
+            meme_list = meme_db_table
+            if not len(meme_list) > 0:
+                meme_list = image_config.data.get("meme_list", [])
+            
             meme_with_text = image_config.data.get("meme_with_text", False)
             
             if meme_mode == "True":
